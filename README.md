@@ -27,3 +27,5 @@ VennDiagram:      Generation of 4 part Venn Diagram displaying number of unique 
 ClusterAssign:    Assigns ASVs into 1 of 6 clusters based on abundance patterns across metadata categories
 
 CompositionChart: Generates composition charts for both read and ASV abundance (very ugly code)
+
+AnoSimDiv:        Analysis of Similarity (was not used for publication as the data was not suitiable for the analysis, however the code is functional)
