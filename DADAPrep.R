@@ -1,0 +1,110 @@
+library(ggplot2)
+library(phyloseq)
+library(microbiome)
+library(knitr)
+library(dplyr)
+library(dada2)
+
+setwd("C:/Users/Alex Eyre/Documents/Work/Microbiome")
+
+### 
+# dada2.old.bac.tax = assignTaxonomy(seqs = "Data/DADA2-new/final_asv_16S.fasta", refFasta = "OldDatabase/16S_taxonomy.fasta")
+# dada2.old.fun.tax = assignTaxonomy(seqs = "Data/DADA2-new/final_asv_ITS.fasta", refFasta = "OldDatabase/ITS_taxonomy.fasta")
+# write.table(dada2.old.bac.tax, "C:/Users/Alex Eyre/Documents/Work/Microbiome/OldDatabase/16S_R_table.csv", sep = ",")
+# write.table(dada2.old.fun.tax, "C:/Users/Alex Eyre/Documents/Work/Microbiome/OldDatabase/ITS_R_table.csv", sep = ",")
+# dada2.old.bac.otus = merge(read.table("Data/DADA2-new/16S_reads.csv", header = TRUE, sep = ","), read.table("OldDatabase/16S_R_table_edit.csv", header = TRUE, sep = ","), by.x = c("Taxa"), by.y = c("Taxa"))
+# dada2.new.bac.otus = merge(read.table("Data/DADA2-new/16S_reads.csv", header = TRUE, sep = ","), read.table("Data/DADA2-new/16S_taxa_edit.csv", header = TRUE, sep = ","), by.x = c("Taxa"), by.y = c("Taxa"))
+# write.csv(dada2.old.bac.otus[c(1:25)], "OldDatabase/16S_reads_edit.csv")
+# write.csv(dada2.new.bac.otus[c(1:25)], "Data/DADA2-new/16S_reads_edit.csv")
+dada2.old.bac.pseq = read_phyloseq(otu.file = "Data/DADA2-new/16S_reads_edit.csv", taxonomy.file = "OldDatabase/16S_R_table_edit.csv", metadata.file = "Metadata/Metadata.csv", type = c("simple"), sep = ",")
+dada2.old.fun.pseq = read_phyloseq(otu.file = "Data/DADA2-new/ITS_reads.csv", taxonomy.file = "OldDatabase/ITS_R_table_edit.csv", metadata.file = "Metadata/Metadata.csv", type = c("simple"), sep = ",")
+dada2.new.bac.pseq = read_phyloseq(otu.file = "Data/DADA2-new/16S_reads_edit.csv", taxonomy.file = "Data/DADA2-new/16S_taxa.csv", metadata.file = "Metadata/Metadata.csv", type = c("simple"), sep = ",")
+dada2.new.fun.pseq = read_phyloseq(otu.file = "Data/DADA2-new/ITS_reads.csv", taxonomy.file = "Data/DADA2-new/ITS_taxa.csv", metadata.file = "Metadata/Metadata.csv", type = c("simple"), sep = ",")
+metadata = read.table("Metadata/Metadata.tsv", header = TRUE)
+
+dada2.new.bac.pseq = prune_taxa(rowSums(abundances(dada2.new.bac.pseq)) > 1, dada2.new.bac.pseq)
+
+### Rareify Data
+dada2.old.bac.rare = rarefy_even_depth(dada2.old.bac.pseq, rngseed = TRUE, sample.size = 387)
+dada2.old.fun.rare = rarefy_even_depth(dada2.old.fun.pseq, rngseed = TRUE)
+dada2.new.bac.rare = rarefy_even_depth(dada2.new.bac.pseq, rngseed = TRUE, sample.size = 465)
+dada2.new.fun.rare = rarefy_even_depth(dada2.new.fun.pseq, rngseed = TRUE, sample.size = 37000)
+
+### Merge all taxa to the genera level
+dada2.old.bac.total = tax_glom(dada2.old.bac.rare, taxrank = "Genus", NArm = FALSE)
+dada2.old.fun.total = tax_glom(dada2.old.fun.rare, taxrank = "Genus", NArm = FALSE)
+dada2.new.bac.total = tax_glom(dada2.new.bac.rare, taxrank = "Genus", NArm = FALSE)
+dada2.new.fun.total = tax_glom(dada2.new.fun.rare, taxrank = "Genus", NArm = FALSE)
+
+### Combine samples based on metadata categories
+dada2.old.bac.100.tiss = merge_samples(dada2.old.bac.total, "Tissue", fun = "sum")
+dada2.old.fun.100.tiss = merge_samples(dada2.old.fun.total, "Tissue", fun = "sum")
+dada2.old.bac.100.year = merge_samples(dada2.old.bac.total, "Year", fun = "sum")
+dada2.old.fun.100.year = merge_samples(dada2.old.fun.total, "Year", fun = "sum")
+dada2.old.bac.100.loc = merge_samples(dada2.old.bac.total, "Location", fun = "sum")
+dada2.old.fun.100.loc = merge_samples(dada2.old.fun.total, "Location", fun = "sum")
+dada2.old.bac.100.geno = merge_samples(dada2.old.bac.total, "Genotype", fun = "sum")
+dada2.old.fun.100.geno = merge_samples(dada2.old.fun.total, "Genotype", fun = "sum")
+dada2.new.bac.100.tiss = merge_samples(dada2.new.bac.total, "Tissue", fun = "sum")
+dada2.new.fun.100.tiss = merge_samples(dada2.new.fun.total, "Tissue", fun = "sum")
+dada2.new.bac.100.year = merge_samples(dada2.new.bac.total, "Year", fun = "sum")
+dada2.new.fun.100.year = merge_samples(dada2.new.fun.total, "Year", fun = "sum")
+dada2.new.bac.100.loc = merge_samples(dada2.new.bac.total, "Location", fun = "sum")
+dada2.new.fun.100.loc = merge_samples(dada2.new.fun.total, "Location", fun = "sum")
+dada2.new.bac.100.geno = merge_samples(dada2.new.bac.total, "Genotype", fun = "sum")
+dada2.new.fun.100.geno = merge_samples(dada2.new.fun.total, "Genotype", fun = "sum")
+
+### Generate Top 1% Data, based on metadata categories
+dada2.old.bac.01.tiss = prune_taxa(taxa_sums(dada2.old.bac.100.tiss) / sum(taxa_sums(dada2.old.bac.100.tiss)) >= 0.01, dada2.old.bac.100.tiss)
+dada2.old.fun.01.tiss = prune_taxa(taxa_sums(dada2.old.fun.100.tiss) / sum(taxa_sums(dada2.old.fun.100.tiss)) >= 0.01, dada2.old.fun.100.tiss)
+dada2.old.bac.01.year = prune_taxa(taxa_sums(dada2.old.bac.100.year) / sum(taxa_sums(dada2.old.bac.100.year)) >= 0.01, dada2.old.bac.100.year)
+dada2.old.fun.01.year = prune_taxa(taxa_sums(dada2.old.fun.100.year) / sum(taxa_sums(dada2.old.fun.100.year)) >= 0.01, dada2.old.fun.100.year)
+dada2.old.bac.01.loc = prune_taxa(taxa_sums(dada2.old.bac.100.loc) / sum(taxa_sums(dada2.old.bac.100.loc)) >= 0.01, dada2.old.bac.100.loc)
+dada2.old.fun.01.loc = prune_taxa(taxa_sums(dada2.old.fun.100.loc) / sum(taxa_sums(dada2.old.fun.100.loc)) >= 0.01, dada2.old.fun.100.loc)
+dada2.old.bac.01.geno = prune_taxa(taxa_sums(dada2.old.bac.100.geno) / sum(taxa_sums(dada2.old.bac.100.geno)) >= 0.01, dada2.old.bac.100.geno)
+dada2.old.fun.01.geno = prune_taxa(taxa_sums(dada2.old.fun.100.geno) / sum(taxa_sums(dada2.old.fun.100.geno)) >= 0.01, dada2.old.fun.100.geno)
+dada2.new.bac.01.tiss = prune_taxa(taxa_sums(dada2.new.bac.100.tiss) / sum(taxa_sums(dada2.new.bac.100.tiss)) >= 0.01, dada2.new.bac.100.tiss)
+dada2.new.fun.01.tiss = prune_taxa(taxa_sums(dada2.new.fun.100.tiss) / sum(taxa_sums(dada2.new.fun.100.tiss)) >= 0.01, dada2.new.fun.100.tiss)
+dada2.new.bac.01.year = prune_taxa(taxa_sums(dada2.new.bac.100.year) / sum(taxa_sums(dada2.new.bac.100.year)) >= 0.01, dada2.new.bac.100.year)
+dada2.new.fun.01.year = prune_taxa(taxa_sums(dada2.new.fun.100.year) / sum(taxa_sums(dada2.new.fun.100.year)) >= 0.01, dada2.new.fun.100.year)
+dada2.new.bac.01.loc = prune_taxa(taxa_sums(dada2.new.bac.100.loc) / sum(taxa_sums(dada2.new.bac.100.loc)) >= 0.01, dada2.new.bac.100.loc)
+dada2.new.fun.01.loc = prune_taxa(taxa_sums(dada2.new.fun.100.loc) / sum(taxa_sums(dada2.new.fun.100.loc)) >= 0.01, dada2.new.fun.100.loc)
+dada2.new.bac.01.geno = prune_taxa(taxa_sums(dada2.new.bac.100.geno) / sum(taxa_sums(dada2.new.bac.100.geno)) >= 0.01, dada2.new.bac.100.geno)
+dada2.new.fun.01.geno = prune_taxa(taxa_sums(dada2.new.fun.100.geno) / sum(taxa_sums(dada2.new.fun.100.geno)) >= 0.01, dada2.new.fun.100.geno) 
+
+### Generate Top 0.1% Data
+dada2.old.bac.001.tiss = prune_taxa(taxa_sums(dada2.old.bac.100.tiss) / sum(taxa_sums(dada2.old.bac.100.tiss)) >= 0.001, dada2.old.bac.100.tiss)
+dada2.old.fun.001.tiss = prune_taxa(taxa_sums(dada2.old.fun.100.tiss) / sum(taxa_sums(dada2.old.fun.100.tiss)) >= 0.001, dada2.old.fun.100.tiss)
+dada2.old.bac.001.year = prune_taxa(taxa_sums(dada2.old.bac.100.year) / sum(taxa_sums(dada2.old.bac.100.year)) >= 0.001, dada2.old.bac.100.year)
+dada2.old.fun.001.year = prune_taxa(taxa_sums(dada2.old.fun.100.year) / sum(taxa_sums(dada2.old.fun.100.year)) >= 0.001, dada2.old.fun.100.year)
+dada2.old.bac.001.loc = prune_taxa(taxa_sums(dada2.old.bac.100.loc) / sum(taxa_sums(dada2.old.bac.100.loc)) >= 0.001, dada2.old.bac.100.loc)
+dada2.old.fun.001.loc = prune_taxa(taxa_sums(dada2.old.fun.100.loc) / sum(taxa_sums(dada2.old.fun.100.loc)) >= 0.001, dada2.old.fun.100.loc)
+dada2.old.bac.001.geno = prune_taxa(taxa_sums(dada2.old.bac.100.geno) / sum(taxa_sums(dada2.old.bac.100.geno)) >= 0.001, dada2.old.bac.100.geno)
+dada2.old.fun.001.geno = prune_taxa(taxa_sums(dada2.old.fun.100.geno) / sum(taxa_sums(dada2.old.fun.100.geno)) >= 0.001, dada2.old.fun.100.geno)
+dada2.new.bac.001.tiss = prune_taxa(taxa_sums(dada2.new.bac.100.tiss) / sum(taxa_sums(dada2.new.bac.100.tiss)) >= 0.001, dada2.new.bac.100.tiss)
+dada2.new.fun.001.tiss = prune_taxa(taxa_sums(dada2.new.fun.100.tiss) / sum(taxa_sums(dada2.new.fun.100.tiss)) >= 0.001, dada2.new.fun.100.tiss)
+dada2.new.bac.001.year = prune_taxa(taxa_sums(dada2.new.bac.100.year) / sum(taxa_sums(dada2.new.bac.100.year)) >= 0.001, dada2.new.bac.100.year)
+dada2.new.fun.001.year = prune_taxa(taxa_sums(dada2.new.fun.100.year) / sum(taxa_sums(dada2.new.fun.100.year)) >= 0.001, dada2.new.fun.100.year)
+dada2.new.bac.001.loc = prune_taxa(taxa_sums(dada2.new.bac.100.loc) / sum(taxa_sums(dada2.new.bac.100.loc)) >= 0.001, dada2.new.bac.100.loc)
+dada2.new.fun.001.loc = prune_taxa(taxa_sums(dada2.new.fun.100.loc) / sum(taxa_sums(dada2.new.fun.100.loc)) >= 0.001, dada2.new.fun.100.loc)
+dada2.new.bac.001.geno = prune_taxa(taxa_sums(dada2.new.bac.100.geno) / sum(taxa_sums(dada2.new.bac.100.geno)) >= 0.001, dada2.new.bac.100.geno)
+dada2.new.fun.001.geno = prune_taxa(taxa_sums(dada2.new.fun.100.geno) / sum(taxa_sums(dada2.new.fun.100.geno)) >= 0.001, dada2.new.fun.100.geno) 
+
+### Pick the Core Microbiota
+
+dada2.new.bac.core = core_members(dada2.new.bac.rare, detection = 0, prevalence = 0.9)
+dada2.new.fun.core = core_members(dada2.new.fun.rare, detection = 0, prevalence = 0.9)
+
+dada2.bac.OH.core = core_members(prune_samples(c("S1", "S5", "S9", "S13", "S17", "S21"), dada2.new.bac.rare), detection = 0, prevalence = 0.9)
+dada2.bac.H.core = core_members(prune_samples(c("S3", "S7", "S11", "S15", "S19", "S23"), dada2.new.bac.rare), detection = 0, prevalence = 0.9)
+dada2.bac.OG.core = core_members(prune_samples(c("S2", "S6", "S10", "S14", "S18", "S22"), dada2.new.bac.rare), detection = 0, prevalence = 0.9)
+dada2.bac.G.core = core_members(prune_samples(c("S4", "S8", "S12", "S16", "S20", "S24"), dada2.new.bac.rare), detection = 0, prevalence = 0.9)
+dada2.fun.OH.core = core_members(prune_samples(c("S1", "S5", "S9", "S13", "S17", "S21"), dada2.new.fun.rare), detection = 0, prevalence = 0.9)
+dada2.fun.H.core = core_members(prune_samples(c("S3", "S7", "S11", "S15", "S19", "S23"), dada2.new.fun.rare), detection = 0, prevalence = 0.9)
+dada2.fun.OG.core = core_members(prune_samples(c("S2", "S6", "S10", "S14", "S18", "S22"), dada2.new.fun.rare), detection = 0, prevalence = 0.9)
+dada2.fun.G.core = core_members(prune_samples(c("S4", "S8", "S12", "S16", "S20", "S24"), dada2.new.fun.rare), detection = 0, prevalence = 0.9)
+
+### Misc commands used to get information
+# colSums(as.matrix(t(otu_table(merge_samples(dada2.old.bac.pseq, "Tissue", fun = "sum"))) != 0))
+# Obtains the number of unique OTUs in tissue compartments
+# which(tax_table(dada2.new.fun.pseq)[,"Genus"] == "Alternaria")
